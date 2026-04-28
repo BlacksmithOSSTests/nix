@@ -22,7 +22,7 @@ permissions: read-all
 
 jobs:
   eval:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
     - uses: actions/checkout@v6
       with:
@@ -38,7 +38,7 @@ jobs:
 
   pre-commit-checks:
     name: pre-commit checks
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/install-nix-action
@@ -51,7 +51,7 @@ jobs:
   basic-checks:
     name: aggregate basic checks
     if: ${{ always() }}
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: [pre-commit-checks, eval]
     steps:
       - name: Exit with any errors
@@ -140,7 +140,7 @@ jobs:
   windows_tests:
     needs: basic-checks
     name: windows unit tests
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     continue-on-error: true
     timeout-minutes: 60
     steps:
@@ -214,7 +214,7 @@ jobs:
 
   clang-tidy:
     needs: basic-checks
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     name: clang-tidy
     steps:
     - uses: actions/checkout@v6
@@ -232,7 +232,7 @@ jobs:
 
   flake_regressions:
     needs: tests
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - name: Checkout nix
         uses: actions/checkout@v6
@@ -266,7 +266,7 @@ jobs:
 
   profile_build:
     needs: tests
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 60
     if: >-
       github.event_name == 'push' &&
