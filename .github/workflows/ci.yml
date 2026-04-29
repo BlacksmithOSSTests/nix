@@ -66,19 +66,19 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: ubuntu-24.04
+            runs-on: blacksmith-2vcpu-ubuntu-2404
             os: linux
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on macos
-            runs-on: macos-14
+            runs-on: blacksmith-6vcpu-macos-15
             os: darwin
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on ubuntu (with sanitizers / coverage)
-            runs-on: ubuntu-24.04
+            runs-on: blacksmith-2vcpu-ubuntu-2404
             os: linux
             instrumented: true
             primary: false
@@ -162,19 +162,19 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: ubuntu-24.04
+            runs-on: blacksmith-2vcpu-ubuntu-2404
             os: linux
             rust-installer: false
           - scenario: on macos
-            runs-on: macos-14
+            runs-on: blacksmith-6vcpu-macos-15
             os: darwin
             rust-installer: false
           - scenario: on ubuntu (rust)
-            runs-on: ubuntu-24.04
+            runs-on: blacksmith-2vcpu-ubuntu-2404
             os: linux
             rust-installer: true
           - scenario: on macos (rust)
-            runs-on: macos-14
+            runs-on: blacksmith-6vcpu-macos-15
             os: darwin
             rust-installer: true
     name: installer test ${{ matrix.scenario }}
