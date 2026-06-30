@@ -22,7 +22,16 @@ permissions: read-all
 
 jobs:
   eval:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: eval (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -37,8 +46,16 @@ jobs:
     - run: nix flake show --all-systems --json
 
   pre-commit-checks:
-    name: pre-commit checks
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: pre-commit checks (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/install-nix-action
@@ -51,7 +68,7 @@ jobs:
   basic-checks:
     name: aggregate basic checks
     if: ${{ always() }}
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [pre-commit-checks, eval]
     steps:
       - name: Exit with any errors
@@ -66,24 +83,48 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: ubuntu-24.04
+            provider: blacksmith
+            runs-on: blacksmith-4vcpu-ubuntu-2404
+            os: linux
+            instrumented: false
+            primary: true
+            stdenv: stdenv
+          - scenario: on ubuntu
+            provider: github
+            runs-on: ubuntu-latest
             os: linux
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on macos
-            runs-on: macos-14
+            provider: blacksmith
+            runs-on: blacksmith-6vcpu-macos-15
+            os: darwin
+            instrumented: false
+            primary: true
+            stdenv: stdenv
+          - scenario: on macos
+            provider: github
+            runs-on: macos-latest
             os: darwin
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on ubuntu (with sanitizers / coverage)
-            runs-on: ubuntu-24.04
+            provider: blacksmith
+            runs-on: blacksmith-4vcpu-ubuntu-2404
             os: linux
             instrumented: true
             primary: false
             stdenv: clangStdenv
-    name: tests ${{ matrix.scenario }}
+          - scenario: on ubuntu (with sanitizers / coverage)
+            provider: github
+            runs-on: ubuntu-latest
+            os: linux
+            instrumented: true
+            primary: false
+            stdenv: clangStdenv
+    name: tests ${{ matrix.scenario }} (${{ matrix.provider }})
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 60
     steps:
@@ -98,7 +139,11 @@ jobs:
         extra_nix_config: "sandbox = true"
     # Since ubuntu 22.30, unprivileged usernamespaces are no longer allowed to map to the root user:
     # https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces
-    - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+    # The sysctl knob only exists on some images (e.g. GitHub-hosted ubuntu), so guard on it.
+    - run: |
+        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi
       if: matrix.os == 'linux'
     - name: Run component tests
       run: |
@@ -127,20 +172,28 @@ jobs:
     - name: Upload coverage reports
       uses: actions/upload-artifact@v7
       with:
-        name: coverage-reports
+        name: coverage-reports-${{matrix.provider}}
         path: coverage-reports/
       if: ${{ matrix.instrumented }}
     - name: Upload installer tarball
       uses: actions/upload-artifact@v7
       with:
-        name: installer-${{matrix.os}}
+        name: installer-${{matrix.os}}-${{matrix.provider}}
         path: out/*
       if: ${{ matrix.primary }}
 
   windows_tests:
     needs: basic-checks
-    name: windows unit tests
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: windows unit tests (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     continue-on-error: true
     timeout-minutes: 60
     steps:
@@ -162,29 +215,53 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: ubuntu-24.04
+            provider: blacksmith
+            runs-on: blacksmith-4vcpu-ubuntu-2404
+            os: linux
+            rust-installer: false
+          - scenario: on ubuntu
+            provider: github
+            runs-on: ubuntu-latest
             os: linux
             rust-installer: false
           - scenario: on macos
-            runs-on: macos-14
+            provider: blacksmith
+            runs-on: blacksmith-6vcpu-macos-15
+            os: darwin
+            rust-installer: false
+          - scenario: on macos
+            provider: github
+            runs-on: macos-latest
             os: darwin
             rust-installer: false
           - scenario: on ubuntu (rust)
-            runs-on: ubuntu-24.04
+            provider: blacksmith
+            runs-on: blacksmith-4vcpu-ubuntu-2404
+            os: linux
+            rust-installer: true
+          - scenario: on ubuntu (rust)
+            provider: github
+            runs-on: ubuntu-latest
             os: linux
             rust-installer: true
           - scenario: on macos (rust)
-            runs-on: macos-14
+            provider: blacksmith
+            runs-on: blacksmith-6vcpu-macos-15
             os: darwin
             rust-installer: true
-    name: installer test ${{ matrix.scenario }}
+          - scenario: on macos (rust)
+            provider: github
+            runs-on: macos-latest
+            os: darwin
+            rust-installer: true
+    name: installer test ${{ matrix.scenario }} (${{ matrix.provider }})
     runs-on: ${{ matrix.runs-on }}
     steps:
     - uses: actions/checkout@v6
     - name: Download installer tarball
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        name: installer-${{matrix.os}}
+        name: installer-${{matrix.os}}-${{matrix.provider}}
         path: out
     - name: Looking up the installer tarball URL
       id: installer-tarball-url
@@ -214,8 +291,16 @@ jobs:
 
   clang-tidy:
     needs: basic-checks
-    runs-on: ubuntu-24.04
-    name: clang-tidy
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: clang-tidy (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -225,14 +310,27 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dogfood: ${{ github.event_name == 'workflow_dispatch' && inputs.dogfood || github.event_name != 'workflow_dispatch' }}
         extra_nix_config: "sandbox = true"
-    - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+    # The sysctl knob only exists on some images (e.g. GitHub-hosted ubuntu), so guard on it.
+    - run: |
+        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi
     - name: Run clang-tidy
       run: nix build .#hydraJobs.clangTidy.x86_64-linux -L
 
 
   flake_regressions:
     needs: tests
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: flake_regressions (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout nix
         uses: actions/checkout@v6
@@ -249,7 +347,7 @@ jobs:
       - name: Download installer tarball
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: installer-linux
+          name: installer-linux-${{ matrix.provider }}
           path: out
       - name: Looking up the installer tarball URL
         id: installer-tarball-url
@@ -266,7 +364,16 @@ jobs:
 
   profile_build:
     needs: tests
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: blacksmith-4vcpu-ubuntu-2404
+            provider: blacksmith
+          - runner: ubuntu-latest
+            provider: github
+    name: profile_build (${{ matrix.provider }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     if: >-
       github.event_name == 'push' &&
