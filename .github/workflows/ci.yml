@@ -22,7 +22,7 @@ permissions: read-all
 
 jobs:
   eval:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
     - uses: actions/checkout@v6
       with:
@@ -38,7 +38,7 @@ jobs:
 
   pre-commit-checks:
     name: pre-commit checks
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/install-nix-action
@@ -51,7 +51,7 @@ jobs:
   basic-checks:
     name: aggregate basic checks
     if: ${{ always() }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [pre-commit-checks, eval]
     steps:
       - name: Exit with any errors
@@ -66,19 +66,19 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: blacksmith-2vcpu-ubuntu-2404
+            runs-on: ubuntu-24.04
             os: linux
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on macos
-            runs-on: blacksmith-6vcpu-macos-15
+            runs-on: macos-14
             os: darwin
             instrumented: false
             primary: true
             stdenv: stdenv
           - scenario: on ubuntu (with sanitizers / coverage)
-            runs-on: blacksmith-2vcpu-ubuntu-2404
+            runs-on: ubuntu-24.04
             os: linux
             instrumented: true
             primary: false
@@ -98,10 +98,7 @@ jobs:
         extra_nix_config: "sandbox = true"
     # Since ubuntu 22.30, unprivileged usernamespaces are no longer allowed to map to the root user:
     # https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces
-    - run: |
-        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-        fi
+    - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       if: matrix.os == 'linux'
     - name: Run component tests
       run: |
@@ -143,7 +140,7 @@ jobs:
   windows_tests:
     needs: basic-checks
     name: windows unit tests
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     continue-on-error: true
     timeout-minutes: 60
     steps:
@@ -165,19 +162,19 @@ jobs:
       matrix:
         include:
           - scenario: on ubuntu
-            runs-on: blacksmith-2vcpu-ubuntu-2404
+            runs-on: ubuntu-24.04
             os: linux
             rust-installer: false
           - scenario: on macos
-            runs-on: blacksmith-6vcpu-macos-15
+            runs-on: macos-14
             os: darwin
             rust-installer: false
           - scenario: on ubuntu (rust)
-            runs-on: blacksmith-2vcpu-ubuntu-2404
+            runs-on: ubuntu-24.04
             os: linux
             rust-installer: true
           - scenario: on macos (rust)
-            runs-on: blacksmith-6vcpu-macos-15
+            runs-on: macos-14
             os: darwin
             rust-installer: true
     name: installer test ${{ matrix.scenario }}
@@ -217,7 +214,7 @@ jobs:
 
   clang-tidy:
     needs: basic-checks
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     name: clang-tidy
     steps:
     - uses: actions/checkout@v6
@@ -228,17 +225,14 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         dogfood: ${{ github.event_name == 'workflow_dispatch' && inputs.dogfood || github.event_name != 'workflow_dispatch' }}
         extra_nix_config: "sandbox = true"
-    - run: |
-        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-        fi
+    - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
     - name: Run clang-tidy
       run: nix build .#hydraJobs.clangTidy.x86_64-linux -L
 
 
   flake_regressions:
     needs: tests
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout nix
         uses: actions/checkout@v6
@@ -272,7 +266,7 @@ jobs:
 
   profile_build:
     needs: tests
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 60
     if: >-
       github.event_name == 'push' &&
